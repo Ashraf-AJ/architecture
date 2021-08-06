@@ -2,10 +2,10 @@ from typing import Iterable, List
 import pytest
 from adapters import repository
 from domain import model
-from service_layer import services
+from service_layer import services, unit_of_work
 
 
-class FakeRepository(repository.RepositoryBase):
+class FakeRepository(repository.AbstractRepository):
     def __init__(self, batches: Iterable[model.Batch]) -> None:
         self._batches = set(batches)
 
@@ -19,37 +19,42 @@ class FakeRepository(repository.RepositoryBase):
         return list(self._batches)
 
 
-class FakeSession:
-    committed: bool = False
+class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
+    def __init__(self) -> None:
+        self.batches = FakeRepository([])
+        self.committed = False
 
     def commit(self) -> None:
         self.committed = True
 
+    def rollback(self) -> None:
+        pass
+
 
 def test_add_batch():
-    repo, session = FakeRepository([]), FakeSession()
-    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, repo, session)
-    assert repo.get("batch1") is not None
-    assert session.committed is True
+    uow = FakeUnitOfWork()
+    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
+    assert uow.batches.get("batch1") is not None
+    assert uow.committed is True
 
 
 def test_returns_allocations():
-    repo, session = FakeRepository([]), FakeSession()
-    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, repo, session)
-    batch_ref = services.allocate("order1", "SIMPLE-LAMP", 10, repo, session)
+    uow = FakeUnitOfWork()
+    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
+    batch_ref = services.allocate("order1", "SIMPLE-LAMP", 10, uow)
 
     assert batch_ref == "batch1"
 
 
 def test_error_for_invalid_sku():
-    repo, session = FakeRepository([]), FakeSession()
-    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, repo, session)
+    uow = FakeUnitOfWork()
+    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
     with pytest.raises(services.InvalidSku, match="NONEXISTINGSKU"):
-        services.allocate("order1", "NONEXISTINGSKU", 10, repo, session)
+        services.allocate("order1", "NONEXISTINGSKU", 10, uow)
 
 
 def test_commits():
-    repo, session = FakeRepository([]), FakeSession()
-    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, repo, session)
-    services.allocate("order1", "SIMPLE-LAMP", 10, repo, session)
-    assert session.committed is True
+    uow = FakeUnitOfWork()
+    services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
+    services.allocate("order1", "SIMPLE-LAMP", 10, uow)
+    assert uow.committed is True

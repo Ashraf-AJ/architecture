@@ -3,7 +3,7 @@ from typing import List
 from domain import model
 
 
-class RepositoryBase(ABC):
+class AbstractRepository(ABC):
     @abstractmethod
     def add(self, batch: model.Batch) -> None:
         raise NotImplementedError
@@ -12,8 +12,12 @@ class RepositoryBase(ABC):
     def get(self, reference: str) -> model.Batch:
         raise NotImplementedError
 
+    @abstractmethod
+    def list(self) -> List[model.Batch]:
+        raise NotImplementedError
 
-class SqlAlchemyRepository(RepositoryBase):
+
+class SqlAlchemyRepository(AbstractRepository):
     def __init__(self, session):
         self.session = session
 

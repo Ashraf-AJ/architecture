@@ -2,6 +2,7 @@ from datetime import date
 from typing import Iterable, Optional
 from domain import model
 from adapters import repository
+from service_layer.unit_of_work import AbstractUnitOfWork
 
 
 class InvalidSku(Exception):
@@ -13,13 +14,16 @@ def is_valid(sku: str, batches: Iterable[model.Batch]) -> bool:
 
 
 def allocate(
-    order_id: str, sku: str, qty: int, repo: repository.RepositoryBase, session
+    order_id: str, sku: str, qty: int, uow: AbstractUnitOfWork
 ) -> str:
-    batches = repo.list()
-    if not is_valid(sku, batches):
-        raise InvalidSku(f"Invalid sku {sku}")
-    batch_ref = model.allocate(model.OrderLine(order_id, sku, qty), batches)
-    session.commit()
+    with uow:
+        batches = uow.batches.list()
+        if not is_valid(sku, batches):
+            raise InvalidSku(f"Invalid sku {sku}")
+        batch_ref = model.allocate(
+            model.OrderLine(order_id, sku, qty), batches
+        )
+        uow.commit()
     return batch_ref
 
 
@@ -28,8 +32,8 @@ def add_batch(
     sku: str,
     qty: int,
     eta: Optional[date],
-    repo: repository.RepositoryBase,
-    session,
+    uow: AbstractUnitOfWork,
 ) -> None:
-    repo.add(model.Batch(reference, sku, qty, eta))
-    session.commit()
+    with uow:
+        uow.batches.add(model.Batch(reference, sku, qty, eta))
+        uow.commit()

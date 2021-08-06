@@ -1,5 +1,5 @@
-import model
-import repository
+from domain import model
+from adapters import repository
 
 
 def insert_order_line(session):

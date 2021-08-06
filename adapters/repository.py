@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-import model
+from domain import model
 
 
 class RepositoryBase(ABC):

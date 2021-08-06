@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.decl_api import registry
-import model
+from domain import model
 
 metadata = MetaData()
 mapper_registry = registry(metadata=metadata)

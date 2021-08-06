@@ -1,5 +1,5 @@
 from datetime import date
-import model
+from domain import model
 
 
 def test_orderline_mapper_can_load_lines(session):

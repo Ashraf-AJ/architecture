@@ -52,7 +52,7 @@ class Batch:
 
     def deallocate(self, line: OrderLine) -> None:
         if line in self._allocations:
-            self._allocations.add(line)
+            self._allocations.remove(line)
 
     @property
     def allocated_quantity(self) -> int:
@@ -65,7 +65,7 @@ class Batch:
 
 def allocate(line: OrderLine, batches: List[Batch]) -> str:
     try:
-        batch = next(b for b in sorted(batches) if b.can_allocate(line))
+        batch: Batch = next(b for b in sorted(batches) if b.can_allocate(line))
         batch.allocate(line)
         return batch.reference
     except StopIteration:

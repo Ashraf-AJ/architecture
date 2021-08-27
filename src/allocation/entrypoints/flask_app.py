@@ -1,8 +1,8 @@
 from datetime import datetime
 from flask import Flask, request
-from adapters import orm
-from domain import model
-from service_layer import services, unit_of_work
+from allocation.adapters import orm
+from allocation.domain import model
+from allocation.service_layer import services, unit_of_work
 
 orm.start_mappers()
 app = Flask(__name__)

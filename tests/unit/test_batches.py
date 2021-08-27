@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Tuple
 
-from domain.model import Batch, OrderLine
+from allocation.domain.model import Batch, OrderLine
 
 
 def make_batch_and_line(

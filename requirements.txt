@@ -1,5 +1,3 @@
-# Editable Git install with no remote (allocation==0.1)
--e d:\vscode-projects\architecture\src
 appdirs==1.4.4
 atomicwrites==1.4.0
 attrs==21.2.0

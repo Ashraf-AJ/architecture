@@ -1,4 +1,5 @@
 from typing import Iterable
+from unittest import mock
 import pytest
 from allocation.adapters import repository
 from allocation.domain import model
@@ -7,12 +8,13 @@ from allocation.service_layer import services, unit_of_work
 
 class FakeRepository(repository.AbstractRepository):
     def __init__(self, products: Iterable[model.Product]) -> None:
+        super().__init__()
         self._products = set(products)
 
-    def add(self, product: model.Product) -> None:
+    def _add(self, product: model.Product) -> None:
         self._products.add(product)
 
-    def get(self, sku: str) -> model.Product:
+    def _get(self, sku: str) -> model.Product:
         return next((b for b in self._products if b.sku == sku), None)
 
 
@@ -21,7 +23,7 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
         self.products = FakeRepository([])
         self.committed = False
 
-    def commit(self) -> None:
+    def _commit(self) -> None:
         self.committed = True
 
     def rollback(self) -> None:
@@ -55,7 +57,7 @@ def test_returns_allocations():
     assert batch_ref == "batch1"
 
 
-def test_error_for_invalid_sku():
+def test_allocate_errors_for_invalid_sku():
     uow = FakeUnitOfWork()
     services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
     with pytest.raises(services.InvalidSku, match="NONEXISTINGSKU"):
@@ -67,3 +69,13 @@ def test_commits():
     services.add_batch("batch1", "SIMPLE-LAMP", 100, None, uow)
     services.allocate("order1", "SIMPLE-LAMP", 10, uow)
     assert uow.committed is True
+
+
+def test_sends_email_on_out_of_stock_error():
+    uow = FakeUnitOfWork()
+    services.add_batch("batch1", "SIMPLE-LAMP", 10, None, uow)
+    with mock.patch("allocation.adapters.email.send_email") as mock_send_email:
+        services.allocate("order1", "SIMPLE-LAMP", 20, uow)
+        assert mock_send_email.call_args == mock.call(
+            "test@example.com", "out of stock SIMPLE-LAMP"
+        )

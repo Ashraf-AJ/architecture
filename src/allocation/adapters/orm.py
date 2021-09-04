@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     Date,
     ForeignKey,
+    event,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.decl_api import registry
@@ -68,3 +69,8 @@ def start_mappers():
         products,
         properties={"batches": relationship(batches_mapper)},
     )
+
+
+@event.listens_for(model.Product, "load")
+def receive_load(product, _):
+    product.events = []

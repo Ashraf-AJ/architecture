@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from allocation.adapters import repository
+from allocation.domain import events
 from allocation import config
-from allocation.service_layer import message_bus
 
 
 class AbstractUnitOfWork(ABC):
@@ -17,13 +18,11 @@ class AbstractUnitOfWork(ABC):
 
     def commit(self):
         self._commit()
-        self.publish_events()
 
-    def publish_events(self):
+    def collect_new_events(self) -> Generator[events.Event, None, None]:
         for product in self.products.seen:
             while product.events:
-                event = product.events.pop(0)
-                message_bus.handle(event)
+                yield product.events.pop(0)
 
     @abstractmethod
     def _commit(self):

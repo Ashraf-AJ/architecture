@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Tuple
-
+import pytest
 from allocation.domain.model import Batch, OrderLine
 
 
@@ -38,12 +38,6 @@ def test_cannot_allocate_if_skus_do_not_match():
     batch = Batch("batch-001", "SMALL-TABLE", qty=20, eta=date.today())
     different_sku_line = OrderLine("order-123", "LARGE-TABLE", qty=2)
     assert batch.can_allocate(different_sku_line) is False
-
-
-def test_can_only_deallocate_allocated_lines():
-    batch, unallocated_line = make_batch_and_line("SMALL-TABLE", 20, 2)
-    batch.deallocate(unallocated_line)
-    assert batch.available_quantity == 20
 
 
 def test_allocation_is_idempotent():

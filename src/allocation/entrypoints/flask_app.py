@@ -24,7 +24,7 @@ def allocate():
     return {"batch_ref": batch_ref}, 201
 
 
-@app.route("/batches", methods=["POST"])
+@app.route("/batches/", methods=["POST"])
 def add_batch():
     eta = request.json["eta"]
     if eta is not None:

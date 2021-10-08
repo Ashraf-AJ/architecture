@@ -17,7 +17,7 @@ class BatchCreated(Event):
     reference: str
     sku: str
     qty: int
-    eta: Optional[date]
+    eta: Optional[date] = None
 
 
 @dataclass

@@ -1,5 +1,5 @@
 from allocation.adapters import email
-from allocation.domain import model, events
+from allocation.domain import commands, model, events
 from allocation.service_layer.unit_of_work import AbstractUnitOfWork
 
 
@@ -7,30 +7,32 @@ class InvalidSku(Exception):
     pass
 
 
-def allocate(event: events.AllocationRequired, uow: AbstractUnitOfWork) -> str:
+def allocate(command: commands.Allocate, uow: AbstractUnitOfWork) -> str:
     with uow:
-        product = uow.products.get(event.sku)
+        product = uow.products.get(command.sku)
         if product is None:
-            raise InvalidSku(f"Invalid sku {event.sku}")
+            raise InvalidSku(f"Invalid sku {command.sku}")
         batch_ref = product.allocate(
-            model.OrderLine(event.order_id, event.sku, event.qty)
+            model.OrderLine(command.order_id, command.sku, command.qty)
         )
         uow.commit()
     return batch_ref
 
 
 def add_batch(
-    event: events.BatchCreated,
+    command: commands.CreateBatch,
     uow: AbstractUnitOfWork,
 ) -> None:
     with uow:
-        product = uow.products.get(event.sku)
+        product = uow.products.get(command.sku)
         if product is None:
-            product = model.Product(event.sku, [])
+            product = model.Product(command.sku, [])
             uow.products.add(product)
 
         product.batches.append(
-            model.Batch(event.reference, event.sku, event.qty, event.eta)
+            model.Batch(
+                command.reference, command.sku, command.qty, command.eta
+            )
         )
         uow.commit()
 
@@ -42,9 +44,11 @@ def send_out_of_stock_notification(
 
 
 def change_batch_quantity(
-    event: events.BatchQuantityChanged, uow: AbstractUnitOfWork
+    command: commands.ChangeBatchQuantity, uow: AbstractUnitOfWork
 ):
     with uow:
-        product = uow.products.get(event.sku)
-        product.change_batch_quantity(event.reference, event.sku, event.qty)
+        product = uow.products.get(command.sku)
+        product.change_batch_quantity(
+            command.reference, command.sku, command.qty
+        )
         uow.commit()

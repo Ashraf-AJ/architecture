@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Flask, request
 from allocation.adapters import orm
-from allocation.domain import events
+from allocation.domain import commands
 from allocation.service_layer import handlers, message_bus, unit_of_work
 
 orm.start_mappers()
@@ -12,7 +12,7 @@ app = Flask(__name__)
 def allocate():
     try:
 
-        event = events.AllocationRequired(
+        event = commands.Allocate(
             request.json["order_id"], request.json["sku"], request.json["qty"]
         )
         results = message_bus.handle(
@@ -29,7 +29,7 @@ def add_batch():
     eta = request.json["eta"]
     if eta is not None:
         eta = datetime.fromisoformat(eta).date()
-    event = events.BatchCreated(
+    event = commands.CreateBatch(
         request.json["reference"],
         request.json["sku"],
         request.json["qty"],

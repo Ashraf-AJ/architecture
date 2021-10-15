@@ -1,8 +1,11 @@
-import time
 import pytest
 import requests
+import shutil
+import subprocess
 
 # from pathlib import Path
+import redis
+from tenacity import retry, stop_after_delay
 from sqlalchemy import create_engine
 
 from sqlalchemy.exc import OperationalError
@@ -32,14 +35,9 @@ def session(session_factory):
     return session_factory()
 
 
+@retry(stop=stop_after_delay(10))
 def wait_for_postgres_to_come_up(engine):
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        try:
-            return engine.connect()
-        except OperationalError:
-            time.sleep(0.5)
-    pytest.fail("postgres never came up")
+    return engine.connect()
 
 
 @pytest.fixture(scope="session")
@@ -63,17 +61,29 @@ def pg_session(pg_session_factory):
     return pg_session_factory()
 
 
+@retry(stop=stop_after_delay(10))
 def wait_for_webapp_to_come_up():
-    deadline = time.time() + 10
-    url = config.get_api_url()
-    while time.time() < deadline:
-        try:
-            return requests.get(url)
-        except ConnectionError:
-            time.sleep(0.5)
-    pytest.fail("API never came up")
+    return requests.get(config.get_api_url())
 
 
 @pytest.fixture
 def restart_api():
     wait_for_webapp_to_come_up()
+
+
+@retry(stop=stop_after_delay(10))
+def wait_for_redis_to_come_up():
+    r = redis.Redis(**config.get_redis_host_and_port())
+    return r.ping()
+
+
+@pytest.fixture
+def restart_redis_pubsub():
+    wait_for_redis_to_come_up()
+    if shutil.which("docker-compose"):
+        print("skipping restart, assumes running in container.")
+        return
+    subprocess.run(
+        ["docker-compose", "restart", "-t", "0", "redis_pubsub"],
+        check=True,
+    )

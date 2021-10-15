@@ -53,6 +53,7 @@ def handle_command(
 
 EVENT_HANDLERS = {
     events.OutOfStock: [handlers.send_out_of_stock_notification],
+    events.Allocated: [handlers.publish_allocated_event],
 }  # type: Dict[Type[events.Event], List[Callable]]
 
 COMMAND_HANDLERS = {

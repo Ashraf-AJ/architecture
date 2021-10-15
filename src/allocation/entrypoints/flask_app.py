@@ -12,12 +12,10 @@ app = Flask(__name__)
 def allocate():
     try:
 
-        event = commands.Allocate(
+        cmd = commands.Allocate(
             request.json["order_id"], request.json["sku"], request.json["qty"]
         )
-        results = message_bus.handle(
-            event, unit_of_work.SqlAlchemyUnitOfWork()
-        )
+        results = message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
         batch_ref = results.pop(0)
     except handlers.InvalidSku as e:
         return {"message": str(e)}, 400
@@ -29,12 +27,12 @@ def add_batch():
     eta = request.json["eta"]
     if eta is not None:
         eta = datetime.fromisoformat(eta).date()
-    event = commands.CreateBatch(
+    cmd = commands.CreateBatch(
         request.json["reference"],
         request.json["sku"],
         request.json["qty"],
         eta,
     )
-    message_bus.handle(event, unit_of_work.SqlAlchemyUnitOfWork())
+    message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
 
     return {"success": True}, 201

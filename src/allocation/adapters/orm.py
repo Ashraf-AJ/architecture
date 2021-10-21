@@ -50,6 +50,14 @@ allocations = Table(
     Column("batch_id", ForeignKey("batches.id")),
 )
 
+allocations_view = Table(
+    "allocations_view",
+    metadata,
+    Column("order_id", String(255), nullable=False),
+    Column("sku", String(255), nullable=False),
+    Column("batch_ref", String(255), nullable=False),
+)
+
 
 def start_mappers():
     lines_mapper = mapper_registry.map_imperatively(

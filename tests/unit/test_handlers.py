@@ -33,80 +33,82 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork):
         pass
 
 
-def test_add_batch():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    assert "batch1" in [
-        b.reference for b in uow.products.get("SIMPLE-LAMP").batches
-    ]
-    assert uow.committed is True
-
-
-def test_add_batch_for_existing_product():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    message_bus.handle(
-        commands.CreateBatch("batch2", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    assert "batch2" in [
-        b.reference for b in uow.products.get("SIMPLE-LAMP").batches
-    ]
-
-
-def test_returns_allocations():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    results = message_bus.handle(
-        commands.Allocate("order1", "SIMPLE-LAMP", 10), uow
-    )
-
-    assert "batch1" == results.pop(0)
-
-
-def test_allocate_errors_for_invalid_sku():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    with pytest.raises(handlers.InvalidSku, match="NONEXISTINGSKU"):
+class TestAddBatch:
+    def test_add_batch(self):
+        uow = FakeUnitOfWork()
         message_bus.handle(
-            commands.Allocate("order1", "NONEXISTINGSKU", 10), uow
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
         )
 
+        assert "batch1" in [
+            b.reference for b in uow.products.get("SIMPLE-LAMP").batches
+        ]
+        assert uow.committed is True
 
-def test_commits():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
-    )
-
-    message_bus.handle(commands.Allocate("order1", "SIMPLE-LAMP", 10), uow)
-
-    assert uow.committed is True
-
-
-def test_sends_email_on_out_of_stock_error():
-    uow = FakeUnitOfWork()
-    message_bus.handle(
-        commands.CreateBatch("batch1", "SIMPLE-LAMP", 10, None), uow
-    )
-
-    with mock.patch("allocation.adapters.email.send_email") as mock_send_email:
-        message_bus.handle(commands.Allocate("order1", "SIMPLE-LAMP", 20), uow)
-        assert mock_send_email.call_args == mock.call(
-            "test@example.com", "out of stock SIMPLE-LAMP"
+    def test_add_batch_for_existing_product(self):
+        uow = FakeUnitOfWork()
+        message_bus.handle(
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
         )
+
+        message_bus.handle(
+            commands.CreateBatch("batch2", "SIMPLE-LAMP", 100, None), uow
+        )
+
+        assert "batch2" in [
+            b.reference for b in uow.products.get("SIMPLE-LAMP").batches
+        ]
+
+
+class TestAllocate:
+    def test_allocates(self):
+        uow = FakeUnitOfWork()
+        message_bus.handle(
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
+        )
+
+        message_bus.handle(commands.Allocate("order1", "SIMPLE-LAMP", 10), uow)
+
+        [batch] = uow.products.get("SIMPLE-LAMP").batches
+
+        assert batch.available_quantity == 90
+
+    def test_allocate_errors_for_invalid_sku(self):
+        uow = FakeUnitOfWork()
+        message_bus.handle(
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
+        )
+
+        with pytest.raises(handlers.InvalidSku, match="NONEXISTINGSKU"):
+            message_bus.handle(
+                commands.Allocate("order1", "NONEXISTINGSKU", 10), uow
+            )
+
+    def test_commits(self):
+        uow = FakeUnitOfWork()
+        message_bus.handle(
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 100, None), uow
+        )
+
+        message_bus.handle(commands.Allocate("order1", "SIMPLE-LAMP", 10), uow)
+
+        assert uow.committed is True
+
+    def test_sends_email_on_out_of_stock_error(self):
+        uow = FakeUnitOfWork()
+        message_bus.handle(
+            commands.CreateBatch("batch1", "SIMPLE-LAMP", 10, None), uow
+        )
+
+        with mock.patch(
+            "allocation.adapters.email.send_email"
+        ) as mock_send_email:
+            message_bus.handle(
+                commands.Allocate("order1", "SIMPLE-LAMP", 20), uow
+            )
+            assert mock_send_email.call_args == mock.call(
+                "test@example.com", "out of stock SIMPLE-LAMP"
+            )
 
 
 class TestChangeBatchQuantity:

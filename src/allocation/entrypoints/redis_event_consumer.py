@@ -1,7 +1,7 @@
 import json
 import logging
 import redis
-
+from typing import Dict, Callable
 from allocation import config
 from allocation.domain import commands
 from allocation.adapters import orm
@@ -10,8 +10,6 @@ from allocation.service_layer import message_bus, unit_of_work
 logger = logging.getLogger(__name__)
 
 r = redis.Redis(**config.get_redis_host_and_port())
-
-CHANNELS = ["change_batch_quantity", "allocate"]
 
 
 def main():
@@ -48,7 +46,8 @@ def handle_allocate(msg):
 HANDLERS = {
     "change_batch_quantity": handle_change_batch_quantity,
     "allocate": handle_allocate,
-}
+}  # type: Dict[str, Callable]
 
+CHANNELS = list(HANDLERS.keys())
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 from datetime import datetime
-from flask import Flask, request
+from flask import Flask, request, jsonify
+from allocation import views
 from allocation.adapters import orm
 from allocation.domain import commands
 from allocation.service_layer import handlers, message_bus, unit_of_work
@@ -15,11 +16,18 @@ def allocate():
         cmd = commands.Allocate(
             request.json["order_id"], request.json["sku"], request.json["qty"]
         )
-        results = message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
-        batch_ref = results.pop(0)
+        message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
     except handlers.InvalidSku as e:
         return {"message": str(e)}, 400
-    return {"batch_ref": batch_ref}, 201
+    return {"success": True}, 201
+
+
+@app.route("/allocations/<order_id>", methods=["GET"])
+def allocations_view(order_id):
+    result = views.allocations(order_id, unit_of_work.SqlAlchemyUnitOfWork())
+    if not result:
+        return "Not Found", 404
+    return jsonify(result), 201
 
 
 @app.route("/batches/", methods=["POST"])

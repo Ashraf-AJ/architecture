@@ -8,11 +8,17 @@ import redis
 from tenacity import retry, stop_after_delay
 from sqlalchemy import create_engine
 
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import clear_mappers, sessionmaker
 
 from allocation.adapters.orm import metadata, start_mappers
 from allocation import config
+
+
+@pytest.fixture
+def mappers():
+    start_mappers()
+    yield
+    clear_mappers()
 
 
 @pytest.fixture
@@ -24,15 +30,13 @@ def in_memory_db():
 
 
 @pytest.fixture
-def session_factory(in_memory_db):
-    start_mappers()
+def in_memory_session_factory(in_memory_db):
     yield sessionmaker(bind=in_memory_db)
-    clear_mappers()
 
 
 @pytest.fixture
-def session(session_factory):
-    return session_factory()
+def in_memory_session(in_memory_session_factory):
+    return in_memory_session_factory()
 
 
 @retry(stop=stop_after_delay(10))
@@ -51,9 +55,7 @@ def postgres_db():
 
 @pytest.fixture
 def pg_session_factory(postgres_db):
-    start_mappers()
     yield sessionmaker(bind=postgres_db)
-    clear_mappers()
 
 
 @pytest.fixture

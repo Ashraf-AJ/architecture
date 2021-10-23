@@ -1,12 +1,14 @@
 from datetime import datetime
-from flask import Flask, request, jsonify
-from allocation import views
-from allocation.adapters import orm
+from flask import request, jsonify
+from allocation import views, bootstrap
 from allocation.domain import commands
-from allocation.service_layer import handlers, message_bus, unit_of_work
+from allocation.entrypoints.flask_utils import create_app
+from allocation.service_layer import handlers, unit_of_work
 
-orm.start_mappers()
-app = Flask(__name__)
+
+app = create_app()
+# with app.app_context:
+bus = bootstrap.bootstrap()
 
 
 @app.route("/allocate", methods=["POST"])
@@ -16,7 +18,7 @@ def allocate():
         cmd = commands.Allocate(
             request.json["order_id"], request.json["sku"], request.json["qty"]
         )
-        message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
+        bus.handle(cmd)
     except handlers.InvalidSku as e:
         return {"message": str(e)}, 400
     return {"success": True}, 201
@@ -24,7 +26,7 @@ def allocate():
 
 @app.route("/allocations/<order_id>", methods=["GET"])
 def allocations_view(order_id):
-    result = views.allocations(order_id, unit_of_work.SqlAlchemyUnitOfWork())
+    result = views.allocations(order_id, bus.uow)
     if not result:
         return "Not Found", 404
     return jsonify(result), 201
@@ -41,6 +43,6 @@ def add_batch():
         request.json["qty"],
         eta,
     )
-    message_bus.handle(cmd, unit_of_work.SqlAlchemyUnitOfWork())
+    bus.handle(cmd)
 
     return {"success": True}, 201

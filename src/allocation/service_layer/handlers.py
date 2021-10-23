@@ -1,5 +1,6 @@
 from dataclasses import asdict
-from allocation.adapters import email, redis_event_publisher
+from typing import Callable, Type, Dict, List
+from allocation.adapters.notifications import AbstractNotifications
 from allocation.domain import commands, model, events
 from allocation.service_layer.unit_of_work import (
     AbstractUnitOfWork,
@@ -48,9 +49,9 @@ def add_batch(
 
 
 def send_out_of_stock_notification(
-    event: events.OutOfStock, uow: AbstractUnitOfWork
+    event: events.OutOfStock, notifications: AbstractNotifications
 ):
-    email.send_email("test@example.com", f"out of stock {event.sku}")
+    notifications.send("test@example.com", f"out of stock {event.sku}")
 
 
 def change_batch_quantity(
@@ -64,8 +65,8 @@ def change_batch_quantity(
         uow.commit()
 
 
-def publish_allocated_event(event: events.Allocated, uow: AbstractUnitOfWork):
-    redis_event_publisher.publish_message("line_allocated", event)
+def publish_allocated_event(event: events.Allocated, publish: Callable):
+    publish("line_allocated", event)
 
 
 def add_allocation_to_read_model(
@@ -95,3 +96,22 @@ def remove_allocation_from_read_model(
             dict(sku=event.sku, order_id=event.order_id),
         )
         uow.commit()
+
+
+EVENT_HANDLERS = {
+    events.OutOfStock: [send_out_of_stock_notification],
+    events.Allocated: [
+        publish_allocated_event,
+        add_allocation_to_read_model,
+    ],
+    events.Deallocated: [
+        reallocate,
+        remove_allocation_from_read_model,
+    ],
+}  # type: Dict[Type[events.Event], List[Callable]]
+
+COMMAND_HANDLERS = {
+    commands.Allocate: allocate,
+    commands.CreateBatch: add_batch,
+    commands.ChangeBatchQuantity: change_batch_quantity,
+}  # type: Dict[Type[commands.Command], Callable]

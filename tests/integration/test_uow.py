@@ -7,6 +7,8 @@ from allocation.domain import model
 from allocation.service_layer import unit_of_work
 from tests.random_refs import random_batchref, random_sku, random_orderid
 
+pytestmark = pytest.mark.usefixtures("mappers")
+
 
 def insert_batch(session, reference, sku, qty, eta, product_version=1):
     session.execute(
@@ -45,12 +47,14 @@ def get_allocated_batch_ref(session, order_id: str, sku: str) -> str:
     return batch_ref
 
 
-def test_uow_can_retrieve_a_product_and_allocate_to_it(session_factory):
-    session = session_factory()
+def test_uow_can_retrieve_a_product_and_allocate_to_it(
+    in_memory_session_factory,
+):
+    session = in_memory_session_factory()
     insert_batch(session, "batch1", "SIMPLE-CHAIR", 100, None)
     session.commit()
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(in_memory_session_factory)
     with uow:
         product = uow.products.get("SIMPLE-CHAIR")
         line = model.OrderLine("order1", "SIMPLE-CHAIR", 10)
@@ -62,27 +66,27 @@ def test_uow_can_retrieve_a_product_and_allocate_to_it(session_factory):
     assert allocated_batch == "batch1"
 
 
-def test_rolls_back_uncommitted_work_by_default(session_factory):
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+def test_rolls_back_uncommitted_work_by_default(in_memory_session_factory):
+    uow = unit_of_work.SqlAlchemyUnitOfWork(in_memory_session_factory)
     with uow:
         insert_batch(uow.session, "batch1", "SIMPLE-CHAIR", 100, None)
-    session = session_factory()
+    session = in_memory_session_factory()
     rows = list(session.execute("SELECT * FROM batches"))
     assert rows == []
 
 
-def test_rolls_back_on_error(session_factory):
+def test_rolls_back_on_error(in_memory_session_factory):
     class MyException(Exception):
         pass
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(in_memory_session_factory)
     with pytest.raises(MyException):
         with uow:
             insert_batch_and_raises_exception(
                 MyException, uow.session, "batch1", "SIMPLE-CHAIR", 100, None
             )
 
-    session = session_factory()
+    session = in_memory_session_factory()
     rows = list(session.execute('SELECT * FROM "batches"'))
     assert rows == []
 
